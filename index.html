@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Bubble VR - Oficina Rodrigo</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%);
+            font-family: 'Rajdhani', sans-serif;
+            color: white; overflow: hidden; height: 100vh; margin: 0;
+        }
+        .title-font { font-family: 'Orbitron', sans-serif; }
+        
+        /* Símbolos Animados de Fundo */
+        .float-symbol {
+            position: absolute; color: rgba(99, 102, 241, 0.2); font-weight: bold;
+            pointer-events: none; animation: floatUp 10s infinite linear; z-index: 0;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+
+        /* Bolhas e Interface */
+        .bubble {
+            position: absolute; width: 95px; height: 95px; border-radius: 50%;
+            background: rgba(56, 189, 248, 0.3); border: 2px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; font-weight: bold; box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+            pointer-events: none; z-index: 50;
+        }
+
+        #video-container { position: relative; width: 100%; height: 100vh; display: none; }
+        #webcam-view { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
+        
+        #pointer-dot {
+            position: absolute; width: 25px; height: 25px; background: #fb7185;
+            border-radius: 50%; border: 3px solid white; z-index: 100;
+            pointer-events: none; box-shadow: 0 0 20px #f43f5e; transform: translate(-50%, -50%);
+        }
+
+        #game-over-screen {
+            display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.95);
+            z-index: 200; flex-direction: column; align-items: center; justify-content: center;
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-symbols"></div>
+
+    <main id="home-screen" class="relative z-10 flex flex-col items-center justify-center h-full text-center">
+        <h1 class="title-font text-7xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">MATH BUBBLE</h1>
+        <p class="text-xl mb-12 text-indigo-200 tracking-[0.3em]">DESAFIO DE OPERAÇÕES</p>
+        
+        <input type="text" id="player-name" placeholder="Nome do Aluno" 
+               class="bg-white/10 border-2 border-indigo-500 rounded-2xl px-6 py-4 mb-6 text-2xl outline-none focus:bg-white/20 transition-all w-80 text-center">
+        
+        <button onclick="irParaSelecao()" class="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-2xl shadow-lg shadow-indigo-500/40 transition-all">
+            ENTRAR NO SISTEMA
+        </button>
+    </main>
+
+    <section id="selection-screen" class="hidden flex flex-col items-center justify-center h-full p-6 text-center z-10 relative">
+        <h2 class="title-font text-3xl mb-10 text-cyan-300">SELECIONE A OPERAÇÃO:</h2>
+        <div class="grid grid-cols-2 gap-6 w-full max-w-4xl">
+            <button onclick="iniciarJogo('+')" class="bg-emerald-900/40 p-12 rounded-3xl border-2 border-emerald-500/30 hover:bg-emerald-800/60 transition-all">
+                <span class="text-6xl block">➕</span> ADIÇÃO
+            </button>
+            <button onclick="iniciarJogo('-')" class="bg-rose-900/40 p-12 rounded-3xl border-2 border-rose-500/30 hover:bg-rose-800/60 transition-all">
+                <span class="text-6xl block">➖</span> SUBTRAÇÃO
+            </button>
+            <button onclick="iniciarJogo('*')" class="bg-amber-900/40 p-12 rounded-3xl border-2 border-amber-500/30 hover:bg-amber-800/60 transition-all">
+                <span class="text-6xl block">✖️</span> MULTI
+            </button>
+            <button onclick="iniciarJogo('/')" class="bg-cyan-900/40 p-12 rounded-3xl border-2 border-cyan-500/30 hover:bg-cyan-800/60 transition-all">
+                <span class="text-6xl block">➗</span> DIVISÃO
+            </button>
+        </div>
+    </section>
+
+    <div id="video-container">
+        <div id="pointer-dot"></div>
+        <div class="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-[60]">
+            <div class="bg-black/60 p-5 rounded-2xl border border-white/20 backdrop-blur-md">
+                <p class="text-2xl">SCORE: <span id="score" class="text-yellow-400 font-bold">0</span></p>
+            </div>
+            <div id="question-box" class="bg-indigo-600 px-12 py-6 rounded-3xl shadow-2xl border-4 border-white/40 text-6xl font-bold title-font">
+                ...
+            </div>
+            <div class="w-24"></div> 
+        </div>
+        <video id="webcam-view" autoplay></video>
+        <div id="bubbles-area"></div>
+    </div>
+
+    <div id="game-over-screen">
+        <h2 class="title-font text-7xl text-rose-500 mb-4">GAME OVER</h2>
+        <p class="text-8xl font-bold text-yellow-400 mb-8" id="final-score">0</p>
+        
+        <div class="w-full max-w-md bg-white/5 p-6 rounded-3xl border border-white/10 mb-8">
+            <h3 class="title-font text-cyan-400 text-center mb-4 border-b border-cyan-400/20 pb-2">HAKING (TOP 5)</h3>
+            <div id="ranking-list" class="space-y-2">
+                <p class="text-center opacity-50">Carregando haking...</p>
+            </div>
+        </div>
+        
+        <button onclick="location.reload()" class="px-10 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xl uppercase">
+            Reiniciar Partida
+        </button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO FIREBASE (SUBSTITUA PELOS SEUS DADOS) ---
+        const firebaseConfig = {
+            apiKey: "COLOQUE_SUA_API_KEY",
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+            projectId: "SEU_PROJETO",
+            storageBucket: "SEU_PROJETO.appspot.com",
+            messagingSenderId: "SEU_ID",
+            appId: "SEU_APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- 2. LOGICA VISUAL DE FUNDO ---
+        for(let i=0; i<15; i++) {
+            let el = document.createElement('div');
+            el.className = 'float-symbol text-4xl';
+            el.innerText = ['+', '-', '×', '÷'][Math.floor(Math.random()*4)];
+            el.style.left = Math.random() * 100 + 'vw';
+            el.style.animationDuration = (Math.random() * 5 + 7) + 's';
+            document.getElementById('bg-symbols').appendChild(el);
+        }
+
+        // --- 3. ESTADO E MECÂNICA ---
+        let playerName = "", score = 0, currentResult = 0, currentOpType = '+';
+        let gameActive = false, velocidadeBase = 0.4, aceleracao = 0.04;
+
+        function irParaSelecao() {
+            playerName = document.getElementById('player-name').value || "Aluno";
+            document.getElementById('home-screen').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
+        }
+
+        function iniciarJogo(op) {
+            currentOpType = op;
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('video-container').style.display = 'block';
+            gameActive = true;
+            setupCamera();
+            proximaPergunta();
+        }
+
+        function proximaPergunta() {
+            let n1 = Math.floor(Math.random() * 10) + 1;
+            let n2 = Math.floor(Math.random() * 10) + 1;
+            if (currentOpType === '+') currentResult = n1 + n2;
+            else if (currentOpType === '-') { if(n1 < n2) [n1, n2] = [n2, n1]; currentResult = n1 - n2; }
+            else if (currentOpType === '*') currentResult = n1 * n2;
+            else if (currentOpType === '/') { currentResult = n1; n1 = n1 * n2; }
+
+            document.getElementById('question-box').innerText = `${n1} ${currentOpType === '*' ? '×' : currentOpType === '/' ? '÷' : currentOpType} ${n2}`;
+            gerarBolhas();
+        }
+
+        function gerarBolhas() {
+            if (!gameActive) return;
+            const area = document.getElementById('bubbles-area');
+            area.innerHTML = '';
+            let vals = [currentResult, currentResult + 2, currentResult - 1, Math.floor(Math.random()*30)].sort(()=>Math.random()-0.5);
+
+            vals.forEach((val, i) => {
+                const b = document.createElement('div');
+                b.className = 'bubble';
+                b.innerText = val;
+                b.style.left = (15 + i * 23) + '%';
+                b.style.top = '100%';
+                area.appendChild(b);
+                
+                let pos = 100;
+                let interval = setInterval(() => {
+                    if(!gameActive) { clearInterval(interval); return; }
+                    pos -= velocidadeBase;
+                    b.style.top = pos + '%';
+                    if(pos <= 0) { gameActive = false; triggerGameOver(); }
+                }, 16);
+                b.dataset.interval = interval;
+            });
+        }
+
+        // --- 4. VISÃO COMPUTACIONAL ---
+        function setupCamera() {
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75 });
+            hands.onResults(res => {
+                if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+                    const pt = res.multiHandLandmarks[0][8]; // Indicador
+                    const x = (1 - pt.x) * window.innerWidth;
+                    const y = pt.y * window.innerHeight;
+                    document.getElementById('pointer-dot').style.left = x + 'px';
+                    document.getElementById('pointer-dot').style.top = y + 'px';
+                    
+                    document.querySelectorAll('.bubble').forEach(b => {
+                        const r = b.getBoundingClientRect();
+                        if (x > r.left && x < r.right && y > r.top && y < r.bottom) {
+                            if (parseInt(b.innerText) === currentResult) {
+                                score += 10; velocidadeBase += aceleracao;
+                                document.getElementById('score').innerText = score;
+                                document.querySelectorAll('.bubble').forEach(ob => clearInterval(ob.dataset.interval));
+                                proximaPergunta();
+                            } else {
+                                b.style.background = "rgba(225, 29, 72, 0.8)";
+                                score = Math.max(0, score - 2);
+                            }
+                        }
+                    });
+                }
+            });
+            const cam = new Camera(document.getElementById('webcam-view'), {
+                onFrame: async () => { await hands.send({image: document.getElementById('webcam-view')}); },
+                width: 1280, height: 720
+            });
+            cam.start();
+        }
+
+        // --- 5. RANKING REAL (FIREBASE) ---
+        function triggerGameOver() {
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-screen').style.display = 'flex';
+            
+            // Salvar
+            database.ref('haking').push({ nome: playerName, pontos: score, data: Date.now() });
+            
+            // Ler Top 5
+            database.ref('haking').orderByChild('pontos').limitToLast(5).on('value', snap => {
+                const list = document.getElementById('ranking-list');
+                list.innerHTML = '';
+                let ranks = [];
+                snap.forEach(s => ranks.push(s.val()));
+                ranks.reverse().forEach((r, idx) => {
+                    list.innerHTML += `<div class="flex justify-between py-1 border-b border-white/5">
+                        <span>${idx+1}. ${r.nome}</span><span class="text-yellow-400 font-bold">${r.pontos}</span>
+                    </div>`;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
