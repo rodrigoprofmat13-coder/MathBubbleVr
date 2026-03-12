@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
 
     <style>
         body {
@@ -21,7 +21,6 @@
         }
         .title-font { font-family: 'Orbitron', sans-serif; }
         
-        /* Símbolos Animados de Fundo */
         .float-symbol {
             position: absolute; color: rgba(99, 102, 241, 0.2); font-weight: bold;
             pointer-events: none; animation: floatUp 10s infinite linear; z-index: 0;
@@ -32,28 +31,57 @@
             100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
         }
 
-        /* Bolhas e Mira */
+        /* Melhoria de Visibilidade para Projetores */
         .bubble {
-            position: absolute; width: 95px; height: 95px; border-radius: 50%;
-            background: rgba(56, 189, 248, 0.3); border: 2px solid rgba(255, 255, 255, 0.4);
-            backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center;
-            font-size: 2rem; font-weight: bold; box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
-            pointer-events: none; z-index: 50;
+            position: absolute; width: 130px; height: 130px; border-radius: 50%; /* Bolhas maiores */
+            background: rgba(15, 23, 42, 0.95); /* Fundo bem escuro e quase opaco */
+            border: 5px solid #06b6d4; /* Borda neon mais grossa */
+            display: flex; align-items: center; justify-content: center;
+            font-size: 4rem; font-weight: 900; color: #ffffff; /* Fonte gigante e branca */
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.8), inset 0 0 20px rgba(6, 182, 212, 0.5);
+            pointer-events: none; z-index: 50; transition: all 0.2s;
+            font-family: 'Orbitron', sans-serif; text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        /* Efeito visual ao estourar (Acerto) */
+        .pop-anim {
+            animation: popEffect 0.3s ease-out forwards;
+        }
+        @keyframes popEffect {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.9; filter: brightness(1.5); border-color: #4ade80; box-shadow: 0 0 50px #4ade80; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        /* Efeito visual ao errar (Tremida) */
+        .wrong-anim {
+            background: rgba(159, 18, 57, 0.95) !important;
+            border-color: #f43f5e !important;
+            box-shadow: 0 0 40px rgba(244, 63, 94, 0.9) !important;
+            color: #ffc107 !important;
+            animation: shake 0.3s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-15px); }
+            75% { transform: translateX(15px); }
         }
 
         #video-container { position: relative; width: 100%; height: 100vh; display: none; }
         #webcam-view { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
         
-        #pointer-dot {
-            position: absolute; width: 30px; height: 30px; background: #fb7185;
-            border-radius: 50%; border: 3px solid white; z-index: 100;
-            pointer-events: none; box-shadow: 0 0 20px #f43f5e; transform: translate(-50%, -50%);
+        .pointer-dot {
+            position: absolute; width: 35px; height: 35px; background: #fb7185;
+            border-radius: 50%; border: 4px solid white; z-index: 100;
+            pointer-events: none; box-shadow: 0 0 25px #f43f5e; transform: translate(-50%, -50%);
         }
 
-        #game-over-screen {
+        .screen-overlay {
             display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.95);
             z-index: 200; flex-direction: column; align-items: center; justify-content: center;
         }
+
+        #start-overlay { z-index: 150; background: rgba(0, 0, 0, 0.85); }
     </style>
 </head>
 <body>
@@ -61,56 +89,80 @@
     <div id="bg-symbols"></div>
 
     <main id="home-screen" class="relative z-10 flex flex-col items-center justify-center h-full text-center">
-        <h1 class="title-font text-6xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">MATH BUBBLE</h1>
-        <p class="text-xl mb-12 text-indigo-200 tracking-[0.3em]">OFICINA DE MATEMÁTICA</p>
+        <h1 class="title-font text-7xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 drop-shadow-lg">MATH BUBBLE</h1>
+        <p class="text-2xl mb-12 text-indigo-200 tracking-[0.3em]">OFICINA DE MATEMÁTICA</p>
         
         <input type="text" id="player-name" placeholder="Seu Nome" 
-               class="bg-white/10 border-2 border-indigo-500 rounded-2xl px-6 py-4 mb-6 text-2xl outline-none focus:bg-white/20 transition-all w-80 text-center">
+               class="bg-white/10 border-4 border-indigo-500 rounded-2xl px-6 py-4 mb-6 text-3xl outline-none focus:bg-white/20 transition-all w-96 text-center shadow-2xl">
         
-        <button onclick="irParaSelecao()" class="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-2xl shadow-lg shadow-indigo-500/40 transition-all uppercase">
+        <button onclick="irParaSelecao()" class="px-14 py-6 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-3xl shadow-lg shadow-indigo-500/50 transition-all uppercase border-2 border-indigo-400">
             Entrar
         </button>
     </main>
 
     <section id="selection-screen" class="hidden flex flex-col items-center justify-center h-full p-6 text-center z-10 relative">
-        <h2 class="title-font text-3xl mb-10 text-cyan-300">QUAL OPERAÇÃO VOCÊ QUER TREINAR?</h2>
-        <div class="grid grid-cols-2 gap-6 w-full max-w-4xl">
-            <button onclick="iniciarJogo('+')" class="bg-emerald-900/40 p-12 rounded-3xl border-2 border-emerald-500/30 hover:bg-emerald-800/60 transition-all">➕ ADIÇÃO</button>
-            <button onclick="iniciarJogo('-')" class="bg-rose-900/40 p-12 rounded-3xl border-2 border-rose-500/30 hover:bg-rose-800/60 transition-all">➖ SUBTRAÇÃO</button>
-            <button onclick="iniciarJogo('*')" class="bg-amber-900/40 p-12 rounded-3xl border-2 border-amber-500/30 hover:bg-amber-800/60 transition-all">✖️ MULTI</button>
-            <button onclick="iniciarJogo('/')" class="bg-cyan-900/40 p-12 rounded-3xl border-2 border-cyan-500/30 hover:bg-cyan-800/60 transition-all">➗ DIVISÃO</button>
+        <h2 class="title-font text-5xl mb-12 text-cyan-300 drop-shadow-md">QUAL OPERAÇÃO?</h2>
+        <div class="grid grid-cols-2 gap-8 w-full max-w-5xl">
+            <button onclick="irParaDificuldade('+')" class="bg-emerald-900/60 p-14 rounded-3xl border-4 border-emerald-500 hover:bg-emerald-800 transition-all text-4xl font-bold shadow-2xl shadow-emerald-500/30">➕ ADIÇÃO</button>
+            <button onclick="irParaDificuldade('-')" class="bg-rose-900/60 p-14 rounded-3xl border-4 border-rose-500 hover:bg-rose-800 transition-all text-4xl font-bold shadow-2xl shadow-rose-500/30">➖ SUBTRAÇÃO</button>
+            <button onclick="irParaDificuldade('*')" class="bg-amber-900/60 p-14 rounded-3xl border-4 border-amber-500 hover:bg-amber-800 transition-all text-4xl font-bold shadow-2xl shadow-amber-500/30">✖️ MULTI</button>
+            <button onclick="irParaDificuldade('/')" class="bg-cyan-900/60 p-14 rounded-3xl border-4 border-cyan-500 hover:bg-cyan-800 transition-all text-4xl font-bold shadow-2xl shadow-cyan-500/30">➗ DIVISÃO</button>
+        </div>
+    </section>
+
+    <section id="difficulty-screen" class="hidden flex flex-col items-center justify-center h-full p-6 text-center z-10 relative">
+        <h2 class="title-font text-5xl mb-12 text-yellow-300 drop-shadow-md">ESCOLHA O NÍVEL</h2>
+        <div class="flex gap-8 w-full max-w-5xl justify-center">
+            <button onclick="prepararJogo('facil')" class="flex-1 bg-green-900/60 p-12 rounded-3xl border-4 border-green-500 hover:bg-green-800 transition-all text-3xl font-bold shadow-xl shadow-green-500/30 flex flex-col items-center">
+                <span class="text-5xl mb-2">🐢</span> FÁCIL
+                <span class="text-sm font-normal mt-2 opacity-75">Aumenta devagar</span>
+            </button>
+            <button onclick="prepararJogo('medio')" class="flex-1 bg-orange-900/60 p-12 rounded-3xl border-4 border-orange-500 hover:bg-orange-800 transition-all text-3xl font-bold shadow-xl shadow-orange-500/30 flex flex-col items-center">
+                <span class="text-5xl mb-2">🐅</span> MÉDIO
+                <span class="text-sm font-normal mt-2 opacity-75">Sobe de pressa</span>
+            </button>
+            <button onclick="prepararJogo('hard')" class="flex-1 bg-red-900/60 p-12 rounded-3xl border-4 border-red-500 hover:bg-red-800 transition-all text-3xl font-bold shadow-xl shadow-red-500/30 flex flex-col items-center">
+                <span class="text-5xl mb-2">🔥</span> HARD
+                <span class="text-sm font-normal mt-2 opacity-75">Acelera a cada 5s!</span>
+            </button>
         </div>
     </section>
 
     <div id="video-container">
-        <div id="pointer-dot"></div>
-        <div class="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-[60]">
-            <div class="bg-black/60 p-5 rounded-2xl border border-white/20">
-                <p class="text-2xl">PONTOS: <span id="score" class="text-yellow-400 font-bold">0</span></p>
+        <div id="start-overlay" class="screen-overlay">
+            <h2 class="title-font text-5xl text-cyan-300 mb-6 text-center drop-shadow-lg">CÂMERA ATIVADA</h2>
+            <p class="text-2xl text-indigo-100 mb-10 text-center max-w-2xl bg-black/40 p-6 rounded-2xl border border-white/10">Posicione-se bem em frente à câmera. Quando as bolinhas começarem a cair, toque na resposta correta para estourá-la!</p>
+            <button onclick="iniciarGameplay()" class="px-16 py-6 bg-emerald-600 hover:bg-emerald-500 rounded-3xl font-bold text-4xl shadow-[0_0_40px_rgba(16,185,129,0.5)] transition-all uppercase animate-pulse border-4 border-emerald-300">
+                Começar!
+            </button>
+        </div>
+
+        <div class="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-[60]">
+            <div class="bg-black/80 p-6 rounded-3xl border-4 border-white/20 shadow-2xl">
+                <p class="text-3xl">PONTOS: <span id="score" class="text-yellow-400 font-bold text-4xl">0</span></p>
             </div>
-            <div id="question-box" class="bg-indigo-600 px-12 py-6 rounded-3xl shadow-2xl border-4 border-white/40 text-6xl font-bold title-font">?</div>
-            <div class="w-24"></div> 
+            <div id="question-box" class="bg-indigo-700 px-16 py-8 rounded-[3rem] shadow-[0_0_50px_rgba(79,70,229,0.6)] border-4 border-cyan-300 text-8xl font-bold title-font text-white drop-shadow-xl">?</div>
+            <div class="w-32"></div> 
         </div>
         <video id="webcam-view" autoplay></video>
         <div id="bubbles-area"></div>
     </div>
 
-    <div id="game-over-screen">
-        <h2 class="title-font text-7xl text-rose-500 mb-4">GAME OVER</h2>
-        <p class="text-8xl font-bold text-yellow-400 mb-8" id="final-score">0</p>
+    <div id="game-over-screen" class="screen-overlay">
+        <h2 class="title-font text-8xl text-rose-500 mb-4 drop-shadow-[0_0_20px_rgba(244,63,94,0.8)]">GAME OVER</h2>
+        <p class="text-9xl font-black text-yellow-400 mb-8 drop-shadow-2xl" id="final-score">0</p>
         
-        <div class="w-full max-w-md bg-white/5 p-6 rounded-3xl border border-white/10 mb-8">
-            <h3 class="title-font text-cyan-400 text-center mb-4 border-b border-cyan-400/20 pb-2">HAKING (TOP 5)</h3>
-            <div id="ranking-list" class="space-y-2">
-                <p class="text-center opacity-50 italic">Carregando haking...</p>
+        <div class="w-full max-w-lg bg-black/60 p-8 rounded-3xl border-2 border-white/20 mb-8 shadow-2xl">
+            <h3 class="title-font text-3xl text-cyan-400 text-center mb-6 border-b border-cyan-400/30 pb-4">RANKING (TOP 5)</h3>
+            <div id="ranking-list" class="space-y-4 text-2xl">
+                <p class="text-center opacity-50 italic">Carregando...</p>
             </div>
         </div>
         
-        <button onclick="location.reload()" class="px-10 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xl uppercase">Reiniciar</button>
+        <button onclick="location.reload()" class="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-3xl uppercase border-2 border-indigo-400 shadow-xl">Jogar Novamente</button>
     </div>
 
     <script>
-        // --- 1. CONFIGURAÇÃO FIREBASE (SUAS CREDENCIAIS REAIS) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCo98AZSav7hzbSb-l7jZ9cZbk2dGKQ07c",
             authDomain: "mathbubble-4b497.firebaseapp.com",
@@ -123,19 +175,19 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // --- 2. FUNDO ANIMADO ---
         for(let i=0; i<15; i++) {
             let el = document.createElement('div');
-            el.className = 'float-symbol text-4xl';
+            el.className = 'float-symbol text-5xl';
             el.innerText = ['+', '-', '×', '÷'][Math.floor(Math.random()*4)];
             el.style.left = Math.random() * 100 + 'vw';
             el.style.animationDuration = (Math.random() * 5 + 7) + 's';
             document.getElementById('bg-symbols').appendChild(el);
         }
 
-        // --- 3. MECÂNICA DO JOGO ---
         let playerName = "", score = 0, currentResult = 0, currentOpType = '+';
-        let gameActive = false, velocidadeBase = 0.4, aceleracao = 0.04;
+        let gameActive = false, isTransitioning = false;
+        let velocidadeBase = 0.4, aceleracao = 0.04, currentDifficulty = 'facil';
+        let hardModeInterval; // Timer exclusivo pro modo Hard
 
         function irParaSelecao() {
             playerName = document.getElementById('player-name').value || "Explorador";
@@ -143,13 +195,42 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
 
-        function iniciarJogo(op) {
+        function irParaDificuldade(op) {
             currentOpType = op;
             document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('difficulty-screen').classList.remove('hidden');
+        }
+
+        function prepararJogo(dificuldade) {
+            currentDifficulty = dificuldade;
+            document.getElementById('difficulty-screen').classList.add('hidden');
             document.getElementById('video-container').style.display = 'block';
+            document.getElementById('start-overlay').style.display = 'flex'; 
+            
+            // Configura os pesos de acordo com o nível
+            if(dificuldade === 'facil') {
+                velocidadeBase = 0.3; aceleracao = 0.02;
+            } else if (dificuldade === 'medio') {
+                velocidadeBase = 0.5; aceleracao = 0.07;
+            } else if (dificuldade === 'hard') {
+                velocidadeBase = 0.6; aceleracao = 0; // Hard é controlado por tempo
+            }
+
+            gameActive = false; 
+            setupCamera(); 
+        }
+
+        function iniciarGameplay() {
+            document.getElementById('start-overlay').style.display = 'none';
             gameActive = true;
-            setupCamera();
             proximaPergunta();
+
+            // Lógica do Nível HARD: Aumenta a velocidade a cada 5 segundos
+            if (currentDifficulty === 'hard') {
+                hardModeInterval = setInterval(() => {
+                    if (gameActive) velocidadeBase += 0.06;
+                }, 5000);
+            }
         }
 
         function proximaPergunta() {
@@ -174,8 +255,10 @@
                 const b = document.createElement('div');
                 b.className = 'bubble';
                 b.innerText = val;
-                b.style.left = (15 + i * 23) + '%';
+                b.style.left = (12 + i * 24) + '%';
                 b.style.top = '100%';
+                
+                b.dataset.popped = "false";
                 area.appendChild(b);
                 
                 let pos = 100;
@@ -189,31 +272,74 @@
             });
         }
 
-        // --- 4. CÂMERA E DETECÇÃO (MEDIAPIPE) ---
         function setupCamera() {
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75 });
+            hands.setOptions({ maxNumHands: 4, modelComplexity: 1, minDetectionConfidence: 0.70 });
             
             hands.onResults(res => {
+                document.querySelectorAll('.pointer-dot').forEach(dot => dot.remove());
+
                 if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
-                    const pt = res.multiHandLandmarks[0][8]; 
-                    const x = (1 - pt.x) * window.innerWidth;
-                    const y = pt.y * window.innerHeight;
-                    document.getElementById('pointer-dot').style.left = x + 'px';
-                    document.getElementById('pointer-dot').style.top = y + 'px';
-                    
-                    document.querySelectorAll('.bubble').forEach(b => {
-                        const r = b.getBoundingClientRect();
-                        if (x > r.left && x < r.right && y > r.top && y < r.bottom) {
-                            if (parseInt(b.innerText) === currentResult) {
-                                score += 10; velocidadeBase += aceleracao;
-                                document.getElementById('score').innerText = score;
-                                document.querySelectorAll('.bubble').forEach(ob => clearInterval(ob.dataset.interval));
-                                proximaPergunta();
-                            } else {
-                                b.style.background = "rgba(225, 29, 72, 0.8)";
-                                score = Math.max(0, score - 2);
-                            }
+                    let handsData = res.multiHandLandmarks.map((landmarks) => {
+                        let wrist = landmarks[0]; 
+                        let middleFingerBase = landmarks[9]; 
+                        let size = Math.sqrt(Math.pow(wrist.x - middleFingerBase.x, 2) + Math.pow(wrist.y - middleFingerBase.y, 2));
+                        return { landmarks, size };
+                    });
+
+                    handsData.sort((a, b) => b.size - a.size);
+                    let mainHands = handsData.slice(0, 2);
+
+                    mainHands.forEach(handData => {
+                        if (handData.size < 0.04) return; 
+
+                        const pt = handData.landmarks[8];
+                        const x = (1 - pt.x) * window.innerWidth;
+                        const y = pt.y * window.innerHeight;
+                        
+                        let pointer = document.createElement('div');
+                        pointer.className = 'pointer-dot';
+                        pointer.style.left = x + 'px';
+                        pointer.style.top = y + 'px';
+                        document.getElementById('video-container').appendChild(pointer);
+
+                        // Impede interações extras durante a animação de "Pop"
+                        if(gameActive && !isTransitioning) {
+                            document.querySelectorAll('.bubble').forEach(b => {
+                                const r = b.getBoundingClientRect();
+                                if (x > r.left && x < r.right && y > r.top && y < r.bottom) {
+                                    if(b.dataset.popped === "false") {
+                                        b.dataset.popped = "true"; 
+                                        
+                                        if (parseInt(b.innerText) === currentResult) {
+                                            isTransitioning = true; // Trava o jogo para tocar a animação
+                                            b.classList.add('pop-anim'); // Chama a animação de estourar
+                                            
+                                            score += 10; 
+                                            // Só ganha aceleração por clique no fácil e médio
+                                            if(currentDifficulty !== 'hard') velocidadeBase += aceleracao; 
+                                            
+                                            document.getElementById('score').innerText = score;
+                                            
+                                            // Pausa as outras bolhas
+                                            document.querySelectorAll('.bubble').forEach(ob => clearInterval(ob.dataset.interval));
+                                            
+                                            // Aguarda 300ms (tempo do efeito CSS) antes de lançar a próxima
+                                            setTimeout(() => {
+                                                isTransitioning = false;
+                                                proximaPergunta();
+                                            }, 300);
+
+                                        } else {
+                                            b.classList.add('wrong-anim'); // Chama animação de erro
+                                            score = Math.max(0, score - 2);
+                                            document.getElementById('score').innerText = score;
+                                            // Libera a bolha para caso bata de novo (tira o popped falso, mas remove a animação depois)
+                                            setTimeout(() => { b.dataset.popped = "false"; b.classList.remove('wrong-anim'); }, 300);
+                                        }
+                                    }
+                                }
+                            });
                         }
                     });
                 }
@@ -225,23 +351,22 @@
             cam.start();
         }
 
-        // --- 5. RANKING NO FIREBASE ---
         function triggerGameOver() {
+            if(hardModeInterval) clearInterval(hardModeInterval); // Limpa o timer do modo Hard
+            
             document.getElementById('final-score').innerText = score;
             document.getElementById('game-over-screen').style.display = 'flex';
             
-            // Salvar no Banco
             database.ref('haking').push({ nome: playerName, pontos: score, data: Date.now() });
             
-            // Ler Top 5 em tempo real
             database.ref('haking').orderByChild('pontos').limitToLast(5).on('value', snap => {
                 const list = document.getElementById('ranking-list');
                 list.innerHTML = '';
                 let ranks = [];
                 snap.forEach(s => ranks.push(s.val()));
                 ranks.reverse().forEach((r, idx) => {
-                    list.innerHTML += `<div class="flex justify-between py-1 border-b border-white/5">
-                        <span>${idx+1}. ${r.nome}</span><span class="text-yellow-400 font-bold">${r.pontos}</span>
+                    list.innerHTML += `<div class="flex justify-between py-2 border-b border-white/10">
+                        <span>${idx+1}. <span class="font-bold">${r.nome}</span></span><span class="text-yellow-400 font-black">${r.pontos}</span>
                     </div>`;
                 });
             });
